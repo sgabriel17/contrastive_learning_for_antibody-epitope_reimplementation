@@ -1,7 +1,7 @@
-data/raw/
-data/processed/
-results/
-__pycache__/
+# data/raw/
+# data/processed/
+# results/
+# __pycache__/
 *.pt
 *.bin
 .env
