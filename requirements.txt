@@ -1,0 +1,12 @@
+torch
+transformers
+peft          # for QLoRA
+ablang2
+antiberty
+fair-esm
+scikit-learn
+umap-learn
+matplotlib
+pandas
+numpy
+biopython
