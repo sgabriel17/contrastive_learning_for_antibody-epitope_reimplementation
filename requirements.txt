@@ -12,3 +12,5 @@ numpy
 biopython
 transformers>=4.30.0
 safetensors
+huggingface_hub
+
