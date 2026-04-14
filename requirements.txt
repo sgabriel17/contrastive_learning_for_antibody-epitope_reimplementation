@@ -9,12 +9,8 @@ umap-learn
 matplotlib
 pandas
 numpy
-<<<<<<< HEAD
-biopython
-=======
 biopython
 transformers>=4.30.0
 safetensors
 huggingface_hub
 
->>>>>>> 9c5d6d9bd7961ad42a5f6013df927ff8620f5707
