@@ -175,8 +175,8 @@ Our goal is to show that **QLoRA fine-tuning of AntiBERTy and/or ESM-2** brings 
 
 ### 1. Clone this repository
 ```bash
-git clone https://github.com/<your-org>/<your-repo>.git
-cd <your-repo>
+git clone https://github.com/sgabriel17/contrastive_learning_for_antibody-epitope_reimplementation.git
+cd contrastive_learning_for_antibody-epitope_reimplementation
 ```
 
 ### 2. Create a virtual environment
