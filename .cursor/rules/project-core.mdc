@@ -1,0 +1,22 @@
+---
+description: Project scope, spec authority, and change discipline for antibody contrastive learning repo
+alwaysApply: true
+---
+
+# Contrastive epitope project — core rules
+
+## Single source of truth
+- Treat [`implementation_plan.md`](implementation_plan.md) as the authoritative spec for architecture, eval protocol, hyperparameters, and file layout.
+- Before adding features, check whether they belong in scope (RBD / DMS; not AbLang-PDB unless explicitly agreed).
+
+## Reference code (do not diverge silently)
+- Holt et al. training logic lives under `ablang_model/train/`. When porting loss, metrics, or data handling, **prefer adapting from that code** over re-deriving from memory.
+- Do not change upstream `ablang_model/` behavior unless fixing a bug or the user asks; new work belongs in `src/`.
+
+## Change discipline
+- Keep diffs **minimal and task-scoped**. No drive-by refactors, no unrelated file edits, no new markdown docs unless the user requests them.
+- Match existing style: imports, typing, docstring level, and naming in nearby files.
+
+## Compatibility
+- Preserve a **clear interface** between `data_loader` → `models` → `loss` → `train` → `evaluate` so encoders stay swappable (AntiBERTy vs ESM-2).
+- Document any intentional departure from `implementation_plan.md` in code comments **only when** the spec and code must differ (e.g. verified ESM-2 `q_proj`/`v_proj` names).
