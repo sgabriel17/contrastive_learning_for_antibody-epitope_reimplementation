@@ -217,25 +217,15 @@ wget https://media.githubusercontent.com/media/jbloomlab/SARS2_RBD_Ab_escape_map
 
 ---
 
-## Dependencies (`requirements.txt`)
+## Dependencies
 
+The canonical list is **[`requirements.txt`](requirements.txt)** at the repo root. Install with:
+
+```bash
+pip install -r requirements.txt
 ```
-torch>=2.0
-transformers>=4.38
-peft>=0.10              # QLoRA / LoRA via HuggingFace PEFT
-bitsandbytes>=0.42      # 4-bit quantization for QLoRA
-antiberty               # pip install antiberty
-fair-esm                # ESM-2 (Meta): pip install fair-esm
-scikit-learn>=1.3
-scipy
-numpy
-pandas
-matplotlib
-seaborn
-umap-learn
-biopython
-tqdm
-```
+
+It includes the QLoRA stack (`torch>=2.0`, `transformers>=4.38`, `peft`, `bitsandbytes`), `antiberty`, and analysis libraries (`scikit-learn`, `scipy`, `seaborn`, `tqdm`, etc.). ESM-2 loads via `transformers` (`facebook/esm2_t33_650M_UR50D`) — no separate `fair-esm` package needed. `bitsandbytes` is Linux/CUDA only; skip locally on macOS and install on Colab. Do not duplicate a second full dependency list here — edit `requirements.txt` when adding packages.
 
 > **Note on model weights:**
 > - **AbLang-RBD** (Holt et al. fine-tuned): `clint-holt/AbLangRBD1` on HuggingFace
