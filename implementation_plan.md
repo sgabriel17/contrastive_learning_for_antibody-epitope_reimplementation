@@ -1,8 +1,8 @@
 # Contrastive Fine-Tuning of Antibody Language Models for Epitope-Aware Embeddings
 
-**Course:** 18.S997 / 6.8711 — Machine Learning in Computational Biology  
-**Team:** Gabriel Sanchez, Gabriela Erin Mariangel, Natalie Barnouw  
-**Based on:** Holt et al. (2026), *Patterns* — [DOI: 10.1016/j.patter.2025.101419](https://doi.org/10.1016/j.patter.2025.101419)  
+**Course:** 18.S997 / 6.8711 — Machine Learning in Computational Biology
+**Team:** Gabriel Sanchez, Gabriela Erin Mariangel, Natalie Barnouw
+**Based on:** Holt et al. (2026), *Patterns* — [DOI: 10.1016/j.patter.2025.101419](https://doi.org/10.1016/j.patter.2025.101419)
 **Upstream code:** [IGlab-VUMC/AbLangRBD1](https://github.com/IGlab-VUMC/AbLangRBD1) (adapted, not forked)
 
 ---
@@ -32,13 +32,13 @@ Supervised contrastive learning (Khosla et al., 2020) trains a model to pull tog
 
 The loss function (NT-Xent with multi-positive support) is:
 
-$$\mathcal{L} = \frac{1}{B} \sum_{i=1}^{B} \frac{1}{|P_i|} \sum_{j \in P_i} -\log \frac{\exp(S_{ij})}{\sum_{k 
+$$\mathcal{L} = \frac{1}{B} \sum_{i=1}^{B} \frac{1}{|P_i|} \sum_{j \in P_i} -\log \frac{\exp(S_{ij})}{\sum_{k
 eq i} \exp(S_{ik})}$$
 
 Where:
 - $B = 256$ (batch size)
 - $S_{ij} = z_i^T z_j / \tau$ (scaled cosine similarity, $\tau = 0.5$)
-- $P_i = \{j : y_j = y_i, j 
+- $P_i = \{j : y_j = y_i, j
 eq i\}$ (set of same-epitope antibodies in the batch)
 
 ### What Is QLoRA?
@@ -53,25 +53,25 @@ This makes it feasible to fine-tune large models like ESM-2 (650M parameters) on
 
 ## What We Are Building vs. What Holt et al. Built
 
-| Component | Holt et al. (AbLang-RBD) | This Project |
-|---|---|---|
-| **Heavy chain encoder** | AbLang-Heavy (RoBERTa, 12-layer, 768D) | AntiBERTy (12-layer) / ESM-2-650M |
-| **Light chain encoder** | AbLang-Light (RoBERTa, 12-layer, 768D) | AntiBERTy / ESM-2-650M (or heavy-only for AntiBERTy) |
-| **Pooling** | Mean-pool final hidden states | Identical |
-| **Cross-chain head** | 6-layer MLP → 1,536D unified embedding, ReLU activations (no final activation) | Identical |
-| **Fine-tuning method** | QLoRA (r=16, α=32, dropout=0.3) | Identical |
-| **Loss function** | Supervised contrastive / NT-Xent (Khosla et al.) | Identical |
-| **Optimizer** | AdamW, lr=1e-5 | Identical |
-| **Batch size** | 256 | Identical |
-| **Training epochs** | 400 (best checkpoint at epoch 280) | ~400 (to be tuned) |
-| **Training data** | 3,093 Bloom Lab DMS sequences, 12 epitopes | Identical |
-| **Evaluation** | Balanced accuracy, AUROC, avg. precision, F1, Spearman ρ, t-SNE | Identical |
+| Component | Holt et al. (AbLang-RBD) | AntiBERTy (ours) | ESM-2 (ours) |
+|---|---|---|---|
+| **Encoder** | AbLang-Heavy + AbLang-Light (dual-stream, 768D each) | AntiBERTy (single encoder, **512D**, heavy-only) | ESM-2-650M (single encoder, **1280D**, H+L concatenated) |
+| **Input** | Heavy + Light chains (separate encoders) | Heavy chain only | Both chains concatenated with `<cls>` separator tokens |
+| **Pooling** | Mean-pool final hidden states per chain | Mean-pool final hidden states | Mean-pool over all non-special positions |
+| **MLP head** | 6-layer MLP, 1536D→1536D (768+768 input) | 6-layer MLP, **512D→512D** | 6-layer MLP, **1280D→1280D** |
+| **Fine-tuning** | QLoRA (r=16, α=32, dropout=0.3) on query+value | Identical | Identical |
+| **Loss** | Supervised contrastive / NT-Xent (Khosla et al.) | Identical | Identical |
+| **Optimizer** | AdamW, lr=1e-5 | Identical | Identical |
+| **Batch size** | 256 | Identical | Identical (may need gradient accumulation on T4) |
+| **Epochs** | 400 (best checkpoint at epoch 280) | ~400 (to be tuned) | ~400 (to be tuned) |
+| **Training data** | 3,093 Bloom Lab DMS sequences, 12 epitopes | Identical | Identical |
+| **Evaluation** | Per-epitope weighted AUROC, avg. precision, F1, t-SNE | Identical | Identical |
 
-### AntiBERTy Chain Handling — Important Design Decision
-AntiBERTy was trained on both heavy and light chains (from the Observed Antibody Space database), but Holt et al. used only heavy-chain averaging in their frozen baseline. Our project **feeds both chains** through a single AntiBERTy encoder and applies the same 6-layer MLP head. This is a novel usage relative to Holt et al. and constitutes an additional experimental axis: does light-chain information improve contrastive fine-tuning performance?
+### AntiBERTy — Heavy Chain Only (512D)
+Holt et al. evaluated AntiBERTy as a frozen baseline using **heavy chain only** with mean-pooling. We follow the same approach for fine-tuning to ensure a clean comparison. AntiBERTy's hidden dimension is **512D** (not 768D like AbLang), so the 6-layer MLP head operates at 512D throughout. While AntiBERTy was trained on both heavy and light chains from OAS, using it for paired sequences would be a novel and unvalidated design choice; heavy-only keeps our experiment controlled.
 
-### ESM-2 Chain Handling
-Following Holt et al.'s own benchmarking setup, heavy and light chains are fed **simultaneously, separated by two `[CLS]` tokens**, into the ESM-2-650M model. Mean-pooling is applied over the final hidden states.
+### ESM-2 — Both Chains Concatenated (1280D)
+Following Holt et al.'s own benchmarking setup (adapted from Burbach & Briney / BALM), heavy and light chains are fed **simultaneously as a single input** to ESM-2-650M, separated by two `<cls>` tokens: `<cls> H_seq <cls> <cls> L_seq <eos>`. Mean-pooling over all non-special-token positions produces a single **1280D** embedding, which is fed into a 6-layer MLP (1280D→1280D). This matches how ESM-2 was benchmarked in the paper and avoids the dual-stream architecture that AbLang requires (since ESM-2 is a single general-purpose protein encoder, not an antibody-specific H/L pair).
 
 ---
 
@@ -82,39 +82,54 @@ Following Holt et al.'s own benchmarking setup, heavy and light chains are fed *
 - **Size:** 3,093 SARS-CoV-2 RBD antibodies (filtered from 3,195 for index-strain binding)
 - **Labels:** 12 discrete epitope bins derived from deep mutational scanning (DMS) escape profiles
 - **What DMS is:** A high-throughput wet-lab technique that systematically introduces every possible single amino acid mutation to the RBD and measures how much each mutation disrupts antibody binding. The resulting "escape map" defines the antibody's functional epitope. Antibodies with overlapping escape profiles are assigned to the same bin.
-- **Split:** 80% train / 10% validation / 10% test, partitioned by heavy V-gene usage + CDRH3 cluster (≥70% CDRH3 identity cutoff of 65%) — ensures no antibody in the same clonal cluster appears in both train and test
+- **Split:** 80% train / 10% validation / 10% test, partitioned by clonal clusters defined as shared heavy V-gene AND >70% CDRH3 amino acid identity. No antibody in the same cluster appears in both train and test. (Note: the 65% CDRH3 cutoff mentioned elsewhere in the paper applies to the AbLang-PDB/SAbDab dataset, not the RBD dataset we use.)
+- **Pre-computed splits:** The existing `ablang_model/train/rbd_dataset.pd` file already contains a `DATASET` column with `TRAIN`/`TEST`/`VAL` labels from Holt et al.'s pipeline. We use these directly to ensure our splits match theirs exactly.
+- **Balanced oversampling:** During training, minority epitope classes are upsampled to match the count of the largest class (via the `oversample_epitope` function in Holt et al.'s code). This ensures the contrastive loss sees balanced representations of all 12 epitopes per epoch.
 
 ### Independent Test Set — CoV-AbDab
 - **Source:** [Raybould et al. (2021)](https://doi.org/10.1093/bioinformatics/btaa739) — Coronavirus Antibody Database
 - **Size:** 237 RBD-specific antibodies with crystal structure data from the PDB
 - **Labels:** Continuous buried surface area (BSA) overlap scores (Å²) computed from crystal structures
-- **Purpose:** Evaluates whether learned embeddings correlate with *structural* (not just functional) epitope overlap. A cosine similarity threshold of 0.85 distinguishes high BSA overlap (>750 Å²) with 97% accuracy in the AbLang-RBD baseline.
+- **Purpose:** Evaluates whether learned embeddings correlate with *structural* (not just functional) epitope overlap. A cosine similarity threshold of 0.85 distinguishes high BSA overlap (>750 Å²) with 97% accuracy in the AbLang-RBD baseline. A *nice goal* would be if our finetuned models are able to take a pair of antibodies that are quite different sequence-wise but bind to the same epitope and embed them similarly. Similarly, take a pair of antibodies that are quite similar in sequence but bind different epitopes and see if our models embed them differently (as they should).
 
 ---
 
-## Model Architecture (Detailed)
+## Model Architectures (Per Encoder)
 
+### AntiBERTy Pipeline (heavy chain only → 512D)
 ```
-Input: paired (heavy_seq, light_seq) antibody sequences
+Input: heavy_seq (amino acid string)
 
-Heavy Chain:
-  → Tokenize (HuggingFace AutoTokenizer)
-  → Encoder (AntiBERTy or ESM-2) + QLoRA adapters
-  → Mean-pool final hidden states over non-masked positions
-  → 768D heavy embedding  [for AbLang/AntiBERTy] or 1280D [for ESM-2-650M]
+  → Space-separate AAs ("E V Q L ...")
+  → Tokenize (AntiBERTy tokenizer)
+  → AntiBERTy encoder (12 transformer blocks, 512D hidden) + QLoRA adapters
+  → Mean-pool final hidden states over non-special-token positions → 512D
 
-Light Chain: (same encoder, separate pass)
-  → 768D / 1280D light embedding
+  → 6-layer MLP (Mixer): 512D → ReLU → 512D → ReLU → 512D → ReLU → 512D → ReLU → 512D → ReLU → 512D
+  → L2-normalize → 512D unified antibody embedding
+```
 
-Cross-chain MLP head:
-  → Concatenate [heavy_emb; light_emb] → 1536D (or 2560D for ESM-2)
-  → FC → ReLU → FC → ReLU → FC → ReLU → FC → ReLU → FC → ReLU → FC
-  → L2-normalize → 1536D unified antibody embedding
+### ESM-2 Pipeline (both chains concatenated → 1280D)
+```
+Input: (heavy_seq, light_seq)
 
-Training objective:
-  → Supervised contrastive loss (NT-Xent, τ=0.5, batch_size=256)
-  → Frozen: all pretrained transformer weights
-  → Trainable: QLoRA adapter matrices (r=16, α=32, dropout=0.3) + 6 MLP layers
+  → Concatenate with CLS separators: "<cls> H_seq <cls> <cls> L_seq <eos>"
+  → Tokenize (ESM-2 tokenizer)
+  → ESM-2-650M encoder (33 transformer blocks, 1280D hidden) + QLoRA adapters
+  → Mean-pool final hidden states over non-special-token positions → 1280D
+
+  → 6-layer MLP (Mixer): 1280D → ReLU → 1280D → ReLU → 1280D → ReLU → 1280D → ReLU → 1280D → ReLU → 1280D
+  → L2-normalize → 1280D unified antibody embedding
+```
+
+### Shared Training Configuration
+```
+Loss:       Supervised contrastive (NT-Xent, τ=0.5, batch_size=256)
+Frozen:     All pretrained transformer weights
+Trainable:  QLoRA adapter matrices (r=16, α=32, dropout=0.3, target_modules=["query", "value"])
+            + 6-layer MLP head (all parameters)
+Optimizer:  AdamW, lr=1e-5
+Epochs:     400 (select best checkpoint by validation AUROC)
 ```
 
 ---
@@ -202,25 +217,15 @@ wget https://media.githubusercontent.com/media/jbloomlab/SARS2_RBD_Ab_escape_map
 
 ---
 
-## Dependencies (`requirements.txt`)
+## Dependencies
 
+The canonical list is **[`requirements.txt`](requirements.txt)** at the repo root. Install with:
+
+```bash
+pip install -r requirements.txt
 ```
-torch>=2.0
-transformers>=4.38
-peft>=0.10              # QLoRA / LoRA via HuggingFace PEFT
-bitsandbytes>=0.42      # 4-bit quantization for QLoRA
-antiberty               # pip install antiberty
-fair-esm                # ESM-2 (Meta): pip install fair-esm
-scikit-learn>=1.3
-scipy
-numpy
-pandas
-matplotlib
-seaborn
-umap-learn
-biopython
-tqdm
-```
+
+It includes the QLoRA stack (`torch>=2.0`, `transformers>=4.38`, `peft`, `bitsandbytes`), `antiberty`, and analysis libraries (`scikit-learn`, `scipy`, `seaborn`, `tqdm`, etc.). ESM-2 loads via `transformers` (`facebook/esm2_t33_650M_UR50D`) — no separate `fair-esm` package needed. `bitsandbytes` is Linux/CUDA only; skip locally on macOS and install on Colab. Do not duplicate a second full dependency list here — edit `requirements.txt` when adding packages.
 
 > **Note on model weights:**
 > - **AbLang-RBD** (Holt et al. fine-tuned): `clint-holt/AbLangRBD1` on HuggingFace
@@ -255,16 +260,31 @@ python src/evaluate.py   --checkpoint checkpoints/antiberty_run1/best.pt   --enc
 
 ## Evaluation Metrics
 
-All metrics match Holt et al. exactly for apples-to-apples comparison:
+All metrics match Holt et al. exactly for apples-to-apples comparison.
+
+### Per-Epitope Weighted AUROC (Primary Metric)
+The paper does **not** use a simple global binary AUROC. Instead, it computes a **per-epitope weighted AUROC** (see `get_cross_dataset_weighted_rocauc` in the upstream `analysis.py`):
+1. For each of the 12 epitope classes, compute class-specific TPR/FPR curves independently
+2. Weight each class's curve by its proportion of positive pairs
+3. Average the weighted TPR/FPR curves across classes
+4. Compute AUC of the combined curve
+
+This matters because a global binary AUROC (as used in our frozen baseline notebook) produces inflated numbers (e.g., 0.812 instead of the paper's 0.73 for test-vs-test). All final reported numbers must use the per-epitope weighted method.
+
+### Two Evaluation Modes
+- **Train-vs-test:** Embed all training antibodies and all test antibodies; compute pairwise cosine similarities between train and test sets. This is the paper's primary metric (AbLang-RBD AUROC = 0.84).
+- **Test-vs-test:** Compute pairwise cosine similarities within the test set only. This is harder and more realistic (AbLang-RBD AUROC = 0.73).
+
+### Full Metric Suite
 
 | Metric | Description |
 |---|---|
-| **Balanced accuracy** | Mean per-class accuracy across all 12 epitope bins |
-| **AUROC** | Area under ROC curve for same-epitope vs. different-epitope pair classification |
+| **Per-epitope weighted AUROC** | Weighted average of per-class ROC curves (see above) |
+| **Balanced accuracy** | Mean per-class accuracy across all 12 epitope bins, at optimal threshold from validation |
 | **Average precision** | Area under precision-recall curve |
 | **F1 score** | At the cosine similarity threshold that maximizes balanced accuracy on validation |
-| **Spearman ρ** | Rank correlation between cosine similarity and BSA overlap (CoV-AbDab) |
-| **t-SNE / UMAP** | 2D visualization of 1536D embeddings colored by epitope bin; k-means accuracy reported |
+| **Spearman ρ** | Rank correlation between cosine similarity and BSA overlap (CoV-AbDab structural test) |
+| **t-SNE** | 2D visualization of embeddings colored by epitope bin; k-means accuracy (k=12) reported |
 
 Thresholds are determined on the **validation set** and applied to the test set without re-tuning.
 
@@ -287,12 +307,41 @@ Thresholds are determined on the **validation set** and applied to the test set 
 
 ---
 
+## What's Done and What's Left
+
+### Completed (Milestone)
+- [x] Frozen baseline notebook (`notebooks/01_frozen_baseline.ipynb`): loads pre-computed AbLangRBD1 embeddings + frozen AntiBERTy/ESM-2, computes binary AUROC and t-SNE
+- [x] Baseline results: AbLangRBD1=0.812 (binary AUROC, test-vs-test), AntiBERTy(frozen)=0.546, ESM-2(frozen)=0.547
+
+### To Build (Training Pipeline — `src/`)
+- [ ] `src/data_loader.py` — load `rbd_dataset.pd`, balanced oversampling, tokenization for both encoders
+- [ ] `src/models.py` — `AntiBERTyContrastive` (512D, heavy-only) and `ESM2Contrastive` (1280D, H+L concat) with QLoRA + 6-layer MLP
+- [ ] `src/loss.py` — port `ContrastiveLoss` and `ContrastiveTrainTestLoss` from upstream code
+- [ ] `src/train.py` — training loop with AdamW, validation AUROC, mixed precision, **periodic checkpoints + resume** (see below)
+- [ ] `src/evaluate.py` — per-epitope weighted AUROC (matching paper), avg precision, F1, t-SNE, both eval modes
+- [ ] Training notebook for Colab (`notebooks/02_train.ipynb`) — imports from `src/`, runs on A100/G4; **mount Drive or sync `output_dir`** so checkpoints survive disconnects
+
+#### Checkpointing (Colab / interrupted runs)
+Training must save **resumable** state regularly so a disconnect does not lose work:
+- Every *N* epochs (e.g. 5 or 10): save `checkpoint_epoch_{e}.pt` containing model state_dict, optimizer state_dict, epoch number, random RNG states (optional), and training metrics JSON.
+- Always overwrite `checkpoint_latest.pt` with the same contents (quick resume).
+- Optional: keep `checkpoint_best.pt` when validation AUROC improves.
+- CLI: `--resume path/to/checkpoint_latest.pt` to continue from the last completed epoch.
+- In Colab: set `--output_dir` to Google Drive or copy `output_dir` to Drive at the end of each session.
+
+### Nice-to-Have (If Time Permits)
+- [ ] CoV-AbDab structural validation (Spearman ρ with BSA overlap)
+- [ ] Cosine similarity distribution plots (same-epitope vs. different-epitope)
+- [ ] Update `01_frozen_baseline.ipynb` to use per-epitope weighted AUROC for corrected baseline numbers
+
+---
+
 ## Project Scope and Limitations
 
-- **Scope:** We reproduce AbLang-RBD (Holt et al.) and swap only the encoder backbone (AbLang → AntiBERTy, then ESM-2). All other architectural components, hyperparameters, datasets, and evaluation protocols are kept identical.
+- **Scope:** We apply Holt et al.'s QLoRA + contrastive fine-tuning framework to two alternative encoders (AntiBERTy and ESM-2). Hyperparameters, dataset, loss function, and evaluation protocol are kept identical to the paper. The only variables are the encoder backbone and its associated architectural adaptations (MLP input dimension, tokenization).
 - **We are NOT implementing AbLang-PDB** (the generalized cross-antigen model). Scope is limited to SARS-CoV-2 RBD antibodies only.
-- **Compute constraint:** Training AbLang-RBD took ~5 hours on a single NVIDIA A6000 GPU. ESM-2-650M and AntiBERTy are larger — budget additional time. Specify your compute access (e.g., MIT Satori, Google Colab A100) in experiment logs.
-- **AntiBERTy chain handling is a novel axis:** Holt et al. only used heavy-chain averaging for AntiBERTy in their frozen baseline. We feed both chains, which is an additional experimental design choice worth reporting.
+- **Compute:** Google Colab Pro (A100 40GB or RTX 6000/G4). Training AbLang-RBD took ~5h on an A6000; AntiBERTy (~26M params) should be faster, ESM-2-650M may need gradient accumulation for batch size 256 on smaller GPUs.
+- **AntiBERTy uses heavy chain only** (matching Holt et al.'s frozen baseline setup). This avoids introducing an uncontrolled variable (paired-input for a model not trained on paired data).
 
 ---
 
@@ -311,9 +360,39 @@ Thresholds are determined on the **validation set** and applied to the test set 
 
 ## Notes for Cursor / AI Coding Assistants
 
-- All model-related code lives in `src/models.py`. When wrapping a new encoder, implement a class with a `forward(heavy_seq, light_seq) -> embedding` interface.
-- The contrastive loss expects a tensor of shape `[batch_size, embed_dim]` and a labels tensor of shape `[batch_size]` (integer epitope bin indices 0–11).
-- QLoRA is injected using HuggingFace `peft.get_peft_model()` with `LoraConfig(r=16, lora_alpha=32, lora_dropout=0.3, task_type="FEATURE_EXTRACTION")`.
-- The 6-layer MLP head takes the concatenated chain embeddings `[heavy_emb; light_emb]` and outputs an L2-normalized 1536D vector. The final layer has **no activation** before normalization.
-- Training freezes all parameters except QLoRA adapters and the MLP head. Confirm this with `sum(p.numel() for p in model.parameters() if p.requires_grad)` before starting a run.
-- Evaluation is always done in two modes: (1) **train-vs-test** (embed test antibodies, compare to train set centroids) and (2) **test-vs-test** (compare held-out antibodies to each other).
+### Model Code (`src/models.py`)
+- `AntiBERTyContrastive`: loads AntiBERTy, injects QLoRA, adds 6-layer MLP (512D). Interface: `forward(h_input_ids, h_attention_mask) -> embedding` (heavy chain only).
+- `ESM2Contrastive`: loads ESM-2-650M, injects QLoRA, adds 6-layer MLP (1280D). Interface: `forward(input_ids, attention_mask) -> embedding` (concatenated H+L input).
+- The 6-layer MLP (`Mixer`) keeps input dimension = output dimension, with ReLU between all layers **except** the final layer. Output is L2-normalized.
+
+### QLoRA Configuration
+- `LoraConfig(r=16, lora_alpha=32, lora_dropout=0.3, target_modules=["query", "value"], bias="none", task_type="FEATURE_EXTRACTION")`
+- The `target_modules` strings must match each encoder's actual module names:
+  - **AntiBERTy (BERT-based):** likely `"query"`, `"value"` in `BertSelfAttention`
+  - **ESM-2:** likely `"q_proj"`, `"v_proj"` in `ESMSelfAttention` — verify with `model.named_modules()`
+- Training freezes all pretrained weights; only QLoRA adapters + MLP head are trainable.
+- Confirm with `sum(p.numel() for p in model.parameters() if p.requires_grad)` before starting.
+
+### Loss (`src/loss.py`)
+- The contrastive loss expects: embeddings `[batch_size, embed_dim]` + labels `[batch_size]` (integer epitope indices). After filtering to the 12 main bins, labels are 0–11; the raw pickle has labels **0–15** if held-out epitopes are included.
+- Port directly from `ablang_model/train/models.py` classes `ContrastiveLoss` (training) and `ContrastiveTrainTestLoss` (evaluation).
+- Temperature τ = 0.5.
+
+### Data (`src/data_loader.py`)
+- Source: `ablang_model/train/rbd_dataset.pd` — use existing `DATASET` column for splits.
+- Balanced oversampling of TRAIN set (minority epitopes upsampled to max class count).
+- AntiBERTy tokenizer: space-separate AAs before tokenizing (e.g., `"E V Q L ..."`).
+- ESM-2 tokenizer: concatenate chains with `<cls>` separators, tokenizer handles the rest.
+
+#### `rbd_dataset.pd` (inspected, 3,143 rows × 25 columns)
+Key columns: `HC_AA`, `LC_AA`, `EPITOPE`, `EPITOPE_LABELS` (integers **0–15**), `DATASET`, `CLONOTYPE`, `PREPARED_HC_SEQ` / `PREPARED_LC_SEQ`, `EMBEDDING` (pretrained AbLang vector per row), `SYNTHETIC`, `CLASS`, V/D/J fields, etc.
+- **16 distinct `EPITOPE` strings:** the 12 RBD DMS bins (A, B, C, D1, D2, E1, E2.1, E2.2, E3, F1, F2, F3) **plus** four held-out variants (`A-BA1`, `B-BA1`, `D-BA1`, `F3-BA1`) as in the upstream `get_run_specifics.py` `HELD_OUT_EPITOPES`. For the **12-class Holt benchmark**, filter rows to the main epitopes (or to `EPITOPE_LABELS` in 0–11) unless explicitly running a held-out experiment.
+- **`DATASET` is mixed case:** `TRAIN` / `TEST` / `VAL` (majority) **and** a small `train` / `test` subset (102 rows total — likely additional held-out or duplicate labeling). The data loader should filter using **one convention** (e.g. `DATASET.isin(['TRAIN','TEST','VAL'])` in uppercase) and document the choice.
+- **Train/test sizes (uppercase only):** TRAIN 2,465; TEST 307; VAL 269 (matches the frozen baseline notebook’s TEST=307).
+
+### Evaluation (`src/evaluate.py`)
+- Evaluation is always done in two modes: (1) **train-vs-test** (compare test embeddings to train embeddings pairwise) and (2) **test-vs-test** (compare held-out antibodies to each other).
+- Use **per-epitope weighted AUROC** (port from `ablang_model/train/analysis.py` `get_cross_dataset_weighted_rocauc`), NOT sklearn's `roc_auc_score`.
+
+### Reference Code
+- The upstream Holt et al. training code lives in `ablang_model/train/` and serves as the ground-truth reference for all architectural and training decisions. Key files: `models.py` (model + loss), `run_simclr_250129.py` (training loop), `data_handling.py` (data loading + oversampling), `analysis.py` (evaluation + plotting), `get_run_specifics.py` (hyperparameters).
