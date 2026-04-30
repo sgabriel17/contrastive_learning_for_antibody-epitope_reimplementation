@@ -176,7 +176,12 @@ class ESM2Contrastive(nn.Module):
     ):
         super().__init__()
         self.load_in_4bit = load_in_4bit
-        self.encoder = AutoModel.from_pretrained(model_id, **_from_pretrained_kwargs(load_in_4bit))
+        # add_pooling_layer=False: we use mean pooling; this avoids bitsandbytes
+        # trying to quantize a freshly-initialized (MISSING) pooler dense layer
+        # which causes an AssertionError in fix_4bit_weight_quant_state_from_module.
+        self.encoder = AutoModel.from_pretrained(
+            model_id, add_pooling_layer=False, **_from_pretrained_kwargs(load_in_4bit)
+        )
         self.encoder = _apply_lora(
             self.encoder,
             target_modules=["query", "value"],  # ESM-2 uses query/value, not q_proj/v_proj
