@@ -42,7 +42,12 @@ def collect_embeddings(
     labels: list[torch.Tensor] = []
     amp_enabled = use_amp and device.type == "cuda"
 
-    with torch.inference_mode():
+    # torch.no_grad() instead of inference_mode: ESM-2's RotaryEmbedding lazily
+    # caches _cos/_sin tensors; if the cache is rebuilt inside inference_mode()
+    # (e.g. due to a longer eval sequence) those tensors become unusable in the
+    # next training forward/backward pass, crashing autograd.  no_grad avoids
+    # gradient tracking with the same speed benefit while keeping tensors normal.
+    with torch.no_grad():
         for batch in tqdm(dataloader, desc="Embedding", leave=False):
             batch_labels = batch.pop("labels")
             inputs = {key: value.to(device) for key, value in batch.items()}
