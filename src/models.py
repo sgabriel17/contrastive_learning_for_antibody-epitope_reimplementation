@@ -179,7 +179,7 @@ class ESM2Contrastive(nn.Module):
         self.encoder = AutoModel.from_pretrained(model_id, **_from_pretrained_kwargs(load_in_4bit))
         self.encoder = _apply_lora(
             self.encoder,
-            target_modules=["q_proj", "v_proj"],
+            target_modules=["query", "value"],  # ESM-2 uses query/value, not q_proj/v_proj
             r=lora_r,
             alpha=lora_alpha,
             dropout=lora_dropout,
