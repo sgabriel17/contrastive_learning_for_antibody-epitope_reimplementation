@@ -64,7 +64,13 @@ def _apply_lora(
         raise ValueError(f"No LoRA target modules found for {target_modules}. Verify module names with named_modules().")
 
     if load_in_4bit:
-        model = prepare_model_for_kbit_training(model)
+        # use_reentrant=False avoids the "inference tensor saved for backward" crash
+        # that occurs in ESM-2's rotary embedding cache when the reentrant checkpoint
+        # implementation re-runs forward and hits tensors created in inference_mode.
+        model = prepare_model_for_kbit_training(
+            model,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
+        )
     else:
         for param in model.parameters():
             param.requires_grad = False
