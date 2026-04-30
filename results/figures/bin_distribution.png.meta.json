@@ -1,0 +1,4 @@
+{
+  "caption": "Epitope Bin Class Distribution",
+  "description": "Bar chart showing number of antibodies in each of the 12 epitope bins derived from Cao et al. 2022 DMS escape data. Note class imbalance: E2.2 and E3 are largest, D2 and E1 smallest."
+}

@@ -1,0 +1,4 @@
+{
+  "caption": "Epitope Bin Spatial Validation on RBD (PDB 8SGU)",
+  "description": "2D top-down projection (X-Z plane) of RBD C\u03b1 backbone (grey dots) with 12 epitope bin centroids (colored circles). Each centroid is the weighted center of mass of RBD residues, weighted by the mean per-residue DMS escape score across all antibodies in that bin. Spatial separation confirms the 12 bins correspond to distinct epitope regions."
+}
