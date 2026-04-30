@@ -113,13 +113,22 @@ def split_dataframe(df: pd.DataFrame, oversample_train: bool = True, seed: int |
 
 
 def get_antiberty_tokenizer(model_dir: str | Path | None = None) -> BertTokenizer:
-    """Load AntiBERTy's local tokenizer from the installed `antiberty` package."""
+    """Load AntiBERTy's local tokenizer from the installed `antiberty` package.
 
+    The package layout is:
+        trained_models/vocab.txt                  ← tokenizer vocab (one level up)
+        trained_models/AntiBERTy_md_smooth/       ← model checkpoint directory
+    """
     if model_dir is None:
         from importlib.resources import files
 
+        # vocab.txt lives directly under trained_models/, not inside the checkpoint dir
         model_dir = files("antiberty").joinpath("trained_models")
     vocab_path = Path(model_dir) / "vocab.txt"
+    if not vocab_path.exists():
+        # Fallback: check one directory up in case a custom model_dir pointing to the
+        # checkpoint directory was passed
+        vocab_path = Path(model_dir).parent / "vocab.txt"
     return BertTokenizer(vocab_file=str(vocab_path), do_lower_case=False)
 
 
