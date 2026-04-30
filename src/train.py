@@ -15,12 +15,12 @@ from tqdm.auto import tqdm
 
 try:
     from .data_loader import DEFAULT_DATA_PATH, make_dataloaders
-    from .evaluate import collect_embeddings, evaluate_pair_mode
+    from .evaluate import collect_embeddings, evaluate_pair_mode, find_threshold_on_val
     from .loss import ContrastiveLoss
     from .models import build_model, move_model_to_device
 except ImportError:
     from data_loader import DEFAULT_DATA_PATH, make_dataloaders
-    from evaluate import collect_embeddings, evaluate_pair_mode
+    from evaluate import collect_embeddings, evaluate_pair_mode, find_threshold_on_val
     from loss import ContrastiveLoss
     from models import build_model, move_model_to_device
 
@@ -156,6 +156,7 @@ def train_one_epoch(
 def evaluate_validation(model: torch.nn.Module, dataloaders, device: torch.device, use_amp: bool) -> dict[str, dict[str, float]]:
     train_embeddings, train_labels = collect_embeddings(model, dataloaders["train_eval"], device, use_amp=use_amp)
     val_embeddings, val_labels = collect_embeddings(model, dataloaders["val"], device, use_amp=use_amp)
+    threshold = find_threshold_on_val(train_embeddings, train_labels, val_embeddings, val_labels)
     return {
         "train_vs_val": evaluate_pair_mode(
             train_embeddings,
@@ -163,6 +164,7 @@ def evaluate_validation(model: torch.nn.Module, dataloaders, device: torch.devic
             val_embeddings,
             val_labels,
             same_dataset=False,
+            threshold=threshold,
         ),
         "val_vs_val": evaluate_pair_mode(
             val_embeddings,
@@ -170,6 +172,7 @@ def evaluate_validation(model: torch.nn.Module, dataloaders, device: torch.devic
             val_embeddings,
             val_labels,
             same_dataset=True,
+            threshold=threshold,
         ),
     }
 
@@ -237,7 +240,7 @@ def main() -> None:
     optimizer = AdamW((param for param in model.parameters() if param.requires_grad), lr=args.lr)
     criterion = ContrastiveLoss(temperature=args.temperature)
     use_amp = torch.cuda.is_available() and not args.no_amp
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     start_epoch = 1
     metrics: list[dict[str, Any]] = []
