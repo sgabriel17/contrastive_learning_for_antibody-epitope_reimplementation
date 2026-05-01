@@ -293,8 +293,8 @@ The paper does **not** use a simple global binary AUROC. Instead, it computes a 
 
 1. For each of the 12 epitope classes, compute class-specific TPR/FPR curves independently
 2. Weight each class's curve by its proportion of positive pairs
-3. Average the weighted TPR/FPR curves across classes
-4. Compute AUC of the combined curve
+  1. Average the weighted TPR/FPR curves across classes
+3. Compute AUC of the combined curve
 
 This matters because a global binary AUROC (as used in our frozen baseline notebook) produces inflated numbers (e.g., 0.812 instead of the paper's 0.73 for test-vs-test). All final reported numbers must use the per-epitope weighted method.
 
@@ -353,13 +353,14 @@ Thresholds are determined on the **validation set** and applied to the test set 
 - `src/loss.py` — port `ContrastiveLoss` and `ContrastiveTrainTestLoss` from upstream code
 - `src/train.py` — training loop with AdamW, validation AUROC, mixed precision, **periodic checkpoints + resume** (see below)
 - `src/evaluate.py` — per-epitope weighted AUROC (matching paper), avg precision, F1, t-SNE, both eval modes
-- **`notebooks/02_train.ipynb`** — Colab launcher (see full cell-by-cell spec below)
+- `**notebooks/02_train.ipynb`** — Colab launcher (see full cell-by-cell spec below)
 
 #### `notebooks/02_train.ipynb` — cell-by-cell spec
 
 This notebook is the entry point for running training on Google Colab. It does not contain model code; it calls `src/train.py` via shell commands after setting up the environment.
 
 **Cell 1 — Mount Google Drive**
+
 ```python
 from google.colab import drive
 drive.mount('/content/drive')
@@ -368,6 +369,7 @@ DRIVE_OUTPUT = "/content/drive/MyDrive/6.8711/checkpoints"  # adjust path as nee
 ```
 
 **Cell 2 — Clone or update the repo**
+
 ```python
 import os
 REPO_DIR = "/content/contrastive_learning_for_antibody-epitope_reimplementation"
@@ -380,12 +382,14 @@ if not os.path.exists(REPO_DIR):
 ```
 
 **Cell 3 — Install dependencies**
+
 ```python
 !pip install -q -r requirements.txt
 # bitsandbytes installs fine on Colab (Linux/CUDA); skip or ignore on macOS.
 ```
 
 **Cell 4 — Sanity check: GPU and dataset**
+
 ```python
 import torch, pandas as pd
 print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "none")
@@ -395,6 +399,7 @@ print("DATASET counts:\n", df["DATASET"].value_counts())
 ```
 
 **Cell 5 — Set run parameters (edit these per experiment)**
+
 ```python
 ENCODER    = "esm2"          # "esm2" or "antiberty"
 EPOCHS     = 400
@@ -406,6 +411,7 @@ RESUME     = ""              # set to f"{OUTPUT_DIR}/checkpoint_latest.pt" to re
 ```
 
 **Cell 6 — Train**
+
 ```python
 !python src/train.py \
   --encoder        {ENCODER} \
@@ -419,6 +425,7 @@ RESUME     = ""              # set to f"{OUTPUT_DIR}/checkpoint_latest.pt" to re
 ```
 
 **Cell 7 — Quick eval after training (optional)**
+
 ```python
 !python src/evaluate.py \
   --encoder    {ENCODER} \
@@ -427,6 +434,7 @@ RESUME     = ""              # set to f"{OUTPUT_DIR}/checkpoint_latest.pt" to re
 ```
 
 **Cell 8 — Plot training curves (optional)**
+
 ```python
 import json, matplotlib.pyplot as plt
 metrics = json.load(open(f"{OUTPUT_DIR}/metrics.json"))
@@ -443,6 +451,7 @@ plt.show()
 #### Checkpointing (Colab / interrupted runs)
 
 Training saves resumable state automatically to `--output_dir` (set to Drive in Cell 5):
+
 - `checkpoint_latest.pt` — overwritten every epoch; use for resume.
 - `checkpoint_best.pt` — saved whenever validation AUROC improves.
 - `checkpoint_epoch_NNN.pt` — saved every `--checkpoint_every` epochs (default 5).
