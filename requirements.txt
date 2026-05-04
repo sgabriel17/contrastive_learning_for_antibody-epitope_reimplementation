@@ -21,9 +21,4 @@ seaborn
 # Hugging Face loading
 safetensors
 huggingface_hub
-<<<<<<< HEAD
-torch
-matplotlib
-seaborn
-=======
->>>>>>> 4361e76bdf3246e3dfd3cf0eb655720d4dde2446
+
