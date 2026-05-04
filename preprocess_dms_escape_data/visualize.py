@@ -27,7 +27,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 RAW_DIR    = "data/raw"
-OUTPUT_DIR = "results/figures"
+OUTPUT_DIR = "results/data_visualization"
 PDB_PATH   = os.path.join(RAW_DIR, "8SGU.pdb")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(RAW_DIR, exist_ok=True)

@@ -284,6 +284,63 @@ def plot_tsne(
     return {"kmeans_accuracy": float(km_acc)}
 
 
+def plot_cosine_distributions(
+    panels: dict[str, tuple[np.ndarray, np.ndarray]],
+    title: str = "Cosine Similarity Distributions",
+    save_path: str | Path | None = None,
+) -> None:
+    """Plot same- vs different-epitope cosine-similarity histograms.
+
+    Matches the Holt et al. Figure 3A style: shared x-axis [−1, 1], decision
+    threshold line, and balanced accuracy annotation per panel.
+
+    Parameters
+    ----------
+    panels : dict mapping panel title → (y_true, y_score) arrays where
+        y_true is 0/1 (same epitope) and y_score is the cosine similarity.
+    title : overall figure title.
+    save_path : if given, save PNG at this path (parent dirs created automatically).
+    """
+    n = len(panels)
+    fig, axes = plt.subplots(1, n, figsize=(5.5 * n, 5), sharey=False)
+    if n == 1:
+        axes = [axes]
+
+    for ax, (panel_name, (y_true, y_score)) in zip(axes, panels.items()):
+        same_ep = y_score[y_true == 1]
+        diff_ep = y_score[y_true == 0]
+
+        ax.hist(diff_ep, bins=100, alpha=0.6, density=True,
+                label="Different Epitopes", color="#EF5350")
+        ax.hist(same_ep, bins=100, alpha=0.6, density=True,
+                label="Same Epitope", color="#42A5F5")
+
+        best_thresh, best_bacc = 0.0, -1.0
+        for t in np.linspace(-1, 1, 1001):
+            bacc = balanced_accuracy_score(y_true, y_score > t)
+            if bacc > best_bacc:
+                best_bacc, best_thresh = bacc, t
+
+        ax.axvline(best_thresh, color="black", linestyle="--", linewidth=1.5,
+                   label="Decision Threshold")
+        ax.set_title(f"{panel_name}\n{best_bacc * 100:.1f}% Accuracy", fontsize=11)
+        ax.set_xlabel("Cosine Similarity", fontsize=11)
+        ax.set_xlim(-1, 1)
+        ax.legend(fontsize=8)
+
+    axes[0].set_ylabel("Density", fontsize=11)
+    fig.suptitle(title, fontsize=13)
+    fig.tight_layout()
+
+    if save_path is not None:
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(save_path, dpi=300, bbox_inches="tight")
+        print(f"Saved → {save_path}")
+
+    plt.show()
+    plt.close(fig)
+
+
 def _kmeans_accuracy(true_labels: np.ndarray, km_labels: np.ndarray, n_clusters: int) -> float:
     """Map each k-means cluster to its majority true label and compute accuracy."""
     mapping = {}
@@ -394,6 +451,22 @@ def evaluate_checkpoint(
             save_path=out / "tsne_train_test.png",
         )
         results["tsne_train_test"] = tsne_metrics_combined
+
+        # Cosine similarity distributions (Holt et al. Figure 3A style)
+        y_true_tvt, y_score_tvt = _binary_pair_scores(
+            train_embeddings, train_labels, test_embeddings, test_labels, same_dataset=False,
+        )
+        y_true_tt, y_score_tt = _binary_pair_scores(
+            test_embeddings, test_labels, test_embeddings, test_labels, same_dataset=True,
+        )
+        plot_cosine_distributions(
+            {
+                f"{encoder} (finetuned) Train vs Test": (y_true_tvt, y_score_tvt),
+                f"{encoder} (finetuned) Test vs Test": (y_true_tt, y_score_tt),
+            },
+            title=f"Cosine Similarity — {encoder} (finetuned)",
+            save_path=out / "cosine_distributions.png",
+        )
 
     return results
 

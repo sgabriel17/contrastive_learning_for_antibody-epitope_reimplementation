@@ -1,0 +1,22 @@
+{
+  "encoder": "esm2",
+  "data_path": "/content/contrastive_learning_for_antibody-epitope_reimplementation/ablang_model/train/rbd_dataset.pd",
+  "output_dir": "/content/drive/MyDrive/6.8711_Project/checkpoints/esm2_run1",
+  "resume": "/content/drive/MyDrive/6.8711_Project/checkpoints/esm2_run1/checkpoint_latest.pt",
+  "epochs": 400,
+  "batch_size": 16,
+  "eval_batch_size": 16,
+  "grad_accum_steps": 16,
+  "lr": 1e-05,
+  "temperature": 0.5,
+  "max_length": 512,
+  "num_workers": 0,
+  "seed": 7,
+  "checkpoint_every": 5,
+  "eval_every": 5,
+  "lora_r": 16,
+  "lora_alpha": 32,
+  "lora_dropout": 0.3,
+  "load_in_4bit": true,
+  "no_amp": false
+}

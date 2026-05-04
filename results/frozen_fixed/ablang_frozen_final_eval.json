@@ -1,0 +1,23 @@
+{
+  "val_threshold": 0.994,
+  "train_vs_test": {
+    "average_precision": 0.1866931968604201,
+    "f1": 0.21713166191055444,
+    "balanced_accuracy": 0.5507874154608515,
+    "threshold": 0.994,
+    "weighted_auroc": 0.5610707247017456
+  },
+  "test_vs_test": {
+    "average_precision": 0.18550783487843475,
+    "f1": 0.21441615640777742,
+    "balanced_accuracy": 0.5516310352095694,
+    "threshold": 0.994,
+    "weighted_auroc": 0.56475423363325
+  },
+  "tsne_test": {
+    "kmeans_accuracy": 0.3289902280130293
+  },
+  "tsne_train_test": {
+    "kmeans_accuracy": 0.3055555555555556
+  }
+}
