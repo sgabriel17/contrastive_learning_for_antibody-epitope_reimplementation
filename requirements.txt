@@ -2,6 +2,7 @@
 torch>=2.0
 transformers>=4.38   # covers ESM-2 (facebook/esm2_t33_650M_UR50D) and AbLang loading
 peft>=0.10
+accelerate>=0.26     # required by HF device maps / 4-bit loading
 bitsandbytes>=0.42   # Linux/CUDA only; skip locally on macOS, needed on Colab
 
 # Antibody LM
